@@ -58,3 +58,7 @@ func (client *Client) ExecuteAnonymousWithContext(ctx context.Context, apexBody 
 
 	return &result, nil
 }
+
+type Logger interface {
+	Println(v ...any)
+}
