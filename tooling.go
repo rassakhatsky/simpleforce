@@ -1,6 +1,7 @@
 package simpleforce
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -30,6 +31,10 @@ func (client *Client) UnTooling() {
 
 // ExecuteAnonymous executes a body of Apex code
 func (client *Client) ExecuteAnonymous(apexBody string) (*ExecuteAnonymousResult, error) {
+	return client.ExecuteAnonymousWithContext(context.Background(), apexBody)
+}
+
+func (client *Client) ExecuteAnonymousWithContext(ctx context.Context, apexBody string) (*ExecuteAnonymousResult, error) {
 	if !client.isLoggedIn() {
 		return nil, ErrAuthentication
 	}
@@ -39,7 +44,7 @@ func (client *Client) ExecuteAnonymous(apexBody string) (*ExecuteAnonymousResult
 	baseURL := client.instanceURL
 	endpoint := fmt.Sprintf(formatString, baseURL, client.apiVersion, url.QueryEscape(apexBody))
 
-	data, err := client.httpRequest("GET", endpoint, nil)
+	data, err := client.httpRequest(ctx, "GET", endpoint, nil)
 	if err != nil {
 		log.Println(logPrefix, "HTTP GET request failed:", endpoint)
 		return nil, err
