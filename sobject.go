@@ -2,6 +2,7 @@ package simpleforce
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -56,12 +57,16 @@ type SObjectAttributes struct {
 // Describe queries the metadata of an SObject using the "describe" API.
 // Ref: https://developer.salesforce.com/docs/atlas.en-us.214.0.api_rest.meta/api_rest/resources_sobject_describe.htm
 func (obj *SObject) Describe() *SObjectMeta {
+	return obj.DescribeWithContext(context.Background())
+}
+
+func (obj *SObject) DescribeWithContext(ctx context.Context) *SObjectMeta {
 	if obj.Type() == "" || obj.client() == nil {
 		// Sanity check.
 		return nil
 	}
 	url := obj.client().makeURL("sobjects/" + obj.Type() + "/describe")
-	data, err := obj.client().httpRequest(http.MethodGet, url, nil)
+	data, err := obj.client().httpRequest(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil
 	}
@@ -80,6 +85,10 @@ func (obj *SObject) Describe() *SObjectMeta {
 // If query is successful, the SObject is updated in-place and exact same address is returned; otherwise, nil is
 // returned if failed.
 func (obj *SObject) Get(id ...string) *SObject {
+	return obj.GetWithContext(context.Background(), id...)
+}
+
+func (obj *SObject) GetWithContext(ctx context.Context, id ...string) *SObject {
 	if obj.Type() == "" || obj.client() == nil {
 		// Sanity check.
 		return nil
@@ -95,7 +104,7 @@ func (obj *SObject) Get(id ...string) *SObject {
 	}
 
 	url := obj.client().makeURL("sobjects/" + obj.Type() + "/" + oid)
-	data, err := obj.client().httpRequest(http.MethodGet, url, nil)
+	data, err := obj.client().httpRequest(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		log.Println(logPrefix, "http request failed,", err)
 		return nil
@@ -115,6 +124,10 @@ func (obj *SObject) Get(id ...string) *SObject {
 // returned for failures.
 // Ref: https://developer.salesforce.com/docs/atlas.en-us.214.0.api_rest.meta/api_rest/dome_sobject_create.htm
 func (obj *SObject) Create() *SObject {
+	return obj.CreateWithContext(context.Background())
+}
+
+func (obj *SObject) CreateWithContext(ctx context.Context) *SObject {
 	if obj.Type() == "" || obj.client() == nil {
 		// Sanity check.
 		return nil
@@ -129,7 +142,7 @@ func (obj *SObject) Create() *SObject {
 	}
 
 	url := obj.client().makeURL("sobjects/" + obj.Type() + "/")
-	respData, err := obj.client().httpRequest(http.MethodPost, url, bytes.NewReader(reqData))
+	respData, err := obj.client().httpRequest(ctx, http.MethodPost, url, bytes.NewReader(reqData))
 	if err != nil {
 		log.Println(logPrefix, "failed to process http request,", err)
 		return nil
@@ -147,6 +160,10 @@ func (obj *SObject) Create() *SObject {
 // Update updates SObject in place. Upon successful, same SObject is returned for chained access.
 // ID is required.
 func (obj *SObject) Update() *SObject {
+	return obj.UpdateWithContext(context.Background())
+}
+
+func (obj *SObject) UpdateWithContext(ctx context.Context) *SObject {
 	if obj.Type() == "" || obj.client() == nil || obj.ID() == "" {
 		// Sanity check.
 		return nil
@@ -165,7 +182,7 @@ func (obj *SObject) Update() *SObject {
 		queryBase = "tooling/sobjects/"
 	}
 	url := obj.client().makeURL(queryBase + obj.Type() + "/" + obj.ID())
-	respData, err := obj.client().httpRequest(http.MethodPatch, url, bytes.NewReader(reqData))
+	respData, err := obj.client().httpRequest(ctx, http.MethodPatch, url, bytes.NewReader(reqData))
 	if err != nil {
 		log.Println(logPrefix, "failed to process http request,", err)
 		return nil
@@ -178,6 +195,10 @@ func (obj *SObject) Update() *SObject {
 // Upsert creates SObject or updates existing SObject in place. Upon successful upsert, same SObject is returned for chained access.
 // ID, ExternalIDField and Type are required. ID is the value of the external ID in this case.
 func (obj *SObject) Upsert() *SObject {
+	return obj.UpsertWithContext(context.Background())
+}
+
+func (obj *SObject) UpsertWithContext(ctx context.Context) *SObject {
 	log.Println(logPrefix, "ExternalID:", obj.ExternalID())
 	log.Println(logPrefix, "ExternalIDField:", obj.ExternalIDFieldName())
 	if obj.Type() == "" || obj.client() == nil || obj.ExternalIDFieldName() == "" ||
@@ -201,7 +222,7 @@ func (obj *SObject) Upsert() *SObject {
 	}
 	url := obj.client().
 		makeURL(queryBase + obj.Type() + "/" + obj.ExternalIDFieldName() + "/" + obj.ExternalID())
-	respData, err := obj.client().httpRequest(http.MethodPatch, url, bytes.NewReader(reqData))
+	respData, err := obj.client().httpRequest(ctx, http.MethodPatch, url, bytes.NewReader(reqData))
 	if err != nil {
 		log.Println(logPrefix, "failed to process http request,", err)
 		return nil
@@ -223,6 +244,10 @@ func (obj *SObject) Upsert() *SObject {
 // Delete deletes an SObject record identified by external ID. nil is returned if the operation completes successfully;
 // otherwise an error is returned
 func (obj *SObject) Delete(id ...string) error {
+	return obj.DeleteWithContext(context.Background(), id...)
+}
+
+func (obj *SObject) DeleteWithContext(ctx context.Context, id ...string) error {
 	if obj.Type() == "" || obj.client() == nil {
 		// Sanity check
 		return ErrFailure
@@ -238,7 +263,7 @@ func (obj *SObject) Delete(id ...string) error {
 
 	url := obj.client().makeURL("sobjects/" + obj.Type() + "/" + obj.ID())
 	log.Println(url)
-	_, err := obj.client().httpRequest(http.MethodDelete, url, nil)
+	_, err := obj.client().httpRequest(ctx, http.MethodDelete, url, nil)
 	if err != nil {
 		return err
 	}
