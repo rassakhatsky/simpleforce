@@ -4,11 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 const (
@@ -18,35 +17,33 @@ const (
 	sobjectExternalIDFieldNameKey = "ExternalIDField"
 )
 
-var (
-	// When updating existing records, certain fields are read only and needs to be removed before submitted to Salesforce.
-	// Following list of fields are extracted from INVALID_FIELD_FOR_INSERT_UPDATE error message.
-	blacklistedUpdateFields = []string{
-		"LastModifiedDate",
-		"LastReferencedDate",
-		"IsClosed",
-		"ContactPhone",
-		"CreatedById",
-		"CaseNumber",
-		"ContactFax",
-		"ContactMobile",
-		"IsDeleted",
-		"LastViewedDate",
-		"SystemModstamp",
-		"CreatedDate",
-		"ContactEmail",
-		"ClosedDate",
-		"LastModifiedById",
-	}
-)
+// When updating existing records, certain fields are read only and needs to be removed before submitted to Salesforce.
+// Following list of fields are extracted from INVALID_FIELD_FOR_INSERT_UPDATE error message.
+var blacklistedUpdateFields = []string{
+	"LastModifiedDate",
+	"LastReferencedDate",
+	"IsClosed",
+	"ContactPhone",
+	"CreatedById",
+	"CaseNumber",
+	"ContactFax",
+	"ContactMobile",
+	"IsDeleted",
+	"LastViewedDate",
+	"SystemModstamp",
+	"CreatedDate",
+	"ContactEmail",
+	"ClosedDate",
+	"LastModifiedById",
+}
 
 // SObject describes an instance of SObject.
 // Ref: https://developer.salesforce.com/docs/atlas.en-us.214.0.api_rest.meta/api_rest/resources_sobject_basic_info.htm
-type SObject map[string]interface{}
+type SObject map[string]any
 
 // SObjectMeta describes the metadata returned by describing the object.
 // Ref: https://developer.salesforce.com/docs/atlas.en-us.214.0.api_rest.meta/api_rest/resources_sobject_describe.htm
-type SObjectMeta map[string]interface{}
+type SObjectMeta map[string]any
 
 // SObjectAttributes describes the basic attributes (type and url) of an SObject.
 type SObjectAttributes struct {
@@ -321,11 +318,11 @@ func (obj *SObject) SObjectField(typeName, key string) *SObject {
 
 	// Secondly, check if this could be a linked object, which doesn't have an ID but has the attributes.
 	linkedObjRaw := obj.InterfaceField(key)
-	linkedObjMapper, ok := linkedObjRaw.(map[string]interface{})
+	linkedObjMapper, ok := linkedObjRaw.(map[string]any)
 	if !ok {
 		return nil
 	}
-	attrs, ok := linkedObjMapper[sobjectAttributesKey].(map[string]interface{})
+	attrs, ok := linkedObjMapper[sobjectAttributesKey].(map[string]any)
 	if !ok {
 		return nil
 	}
@@ -357,7 +354,7 @@ func (obj *SObject) SObjectField(typeName, key string) *SObject {
 }
 
 // InterfaceField accesses a field in the SObject as raw interface. This allows access to any type of fields.
-func (obj *SObject) InterfaceField(key string) interface{} {
+func (obj *SObject) InterfaceField(key string) any {
 	return (*obj)[key]
 }
 
@@ -370,9 +367,9 @@ func (obj *SObject) AttributesField() *SObjectAttributes {
 		// Use a temporary variable to copy the value of attributes and return the address of the temp value.
 		attrs := (attributes).(SObjectAttributes)
 		return &attrs
-	case map[string]interface{}:
+	case map[string]any:
 		// Can't convert attributes to concrete type; decode interface.
-		mapper := attributes.(map[string]interface{})
+		mapper := attributes.(map[string]any)
 		attrs := &SObjectAttributes{}
 		if mapper["type"] != nil {
 			attrs.Type = mapper["type"].(string)
@@ -388,7 +385,7 @@ func (obj *SObject) AttributesField() *SObjectAttributes {
 
 // Set indexes value into SObject instance with provided key. The same SObject pointer is returned to allow
 // chained access.
-func (obj *SObject) Set(key string, value interface{}) *SObject {
+func (obj *SObject) Set(key string, value any) *SObject {
 	(*obj)[key] = value
 	return obj
 }
@@ -430,8 +427,8 @@ func (obj *SObject) setID(id string) {
 }
 
 // makeCopy copies the fields of an SObject to a new map without metadata fields.
-func (obj *SObject) makeCopy() map[string]interface{} {
-	stripped := make(map[string]interface{})
+func (obj *SObject) makeCopy() map[string]any {
+	stripped := make(map[string]any)
 	for key, val := range *obj {
 		if key == sobjectClientKey ||
 			key == sobjectAttributesKey ||

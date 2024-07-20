@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"html"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -204,8 +203,7 @@ func (client *Client) LoginPasswordWithContext(ctx context.Context, username, pa
 		return theError
 	}
 
-	respData, err := ioutil.ReadAll(resp.Body)
-
+	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(logPrefix, "error occurred reading response data,", err)
 	}
@@ -264,7 +262,7 @@ func (client *Client) httpRequest(ctx context.Context, method, url string, body 
 		return nil, theError
 	}
 
-	return ioutil.ReadAll(resp.Body)
+	return io.ReadAll(resp.Body)
 }
 
 // makeURL generates a REST API URL based on baseURL, APIVersion of the client.
@@ -306,14 +304,16 @@ func (client *Client) DownloadAttachment(attachmentId string, filepath string) e
 }
 
 func (client *Client) download(apiPath string, filepath string) error {
-	// Get the data
-	httpClient := client.httpClient
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s", strings.TrimRight(client.instanceURL, "/"), apiPath), nil)
+	if err != nil {
+		return err
+	}
+
 	req.Header.Add("Content-Type", "application/json; charset=UTF-8")
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Authorization", "Bearer "+client.sessionID)
 
-	resp, err := httpClient.Do(req)
+	resp, err := client.httpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -352,6 +352,9 @@ func (client *Client) DescribeGlobal() (*SObjectMeta, error) {
 	url := fmt.Sprintf("%s%s", baseURL, apiPath) // Get the objects
 	httpClient := client.httpClient
 	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
 	req.Header.Add("Content-Type", "application/json; charset=UTF-8")
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Authorization", "Bearer "+client.sessionID)
@@ -364,7 +367,7 @@ func (client *Client) DescribeGlobal() (*SObjectMeta, error) {
 
 	var meta SObjectMeta
 
-	respData, err := ioutil.ReadAll(resp.Body)
+	respData, err := io.ReadAll(resp.Body)
 	log.Println(logPrefix, fmt.Sprintf("status code %d", resp.StatusCode))
 	if err != nil {
 		log.Println(logPrefix, "error while reading all body")

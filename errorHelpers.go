@@ -3,9 +3,8 @@ package simpleforce
 import (
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
-
-	"github.com/pkg/errors"
 )
 
 var (
@@ -37,7 +36,7 @@ func (err SalesforceError) Error() string {
 	return err.Message
 }
 
-//Need to get information out of this package.
+// Need to get information out of this package.
 func ParseSalesforceError(statusCode int, responseBody []byte) (err error) {
 	jsonError := jsonError{}
 	err = json.Unmarshal(responseBody, &jsonError)
