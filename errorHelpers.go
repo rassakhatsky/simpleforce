@@ -3,9 +3,8 @@ package simpleforce
 import (
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
-
-	"github.com/pkg/errors"
 )
 
 var (
@@ -37,33 +36,33 @@ func (err SalesforceError) Error() string {
 	return err.Message
 }
 
-//Need to get information out of this package.
+// Need to get information out of this package.
 func ParseSalesforceError(statusCode int, responseBody []byte) (err error) {
-	jsonError := jsonError{}
-	err = json.Unmarshal(responseBody, &jsonError)
+	jsonErr := jsonError{}
+	err = json.Unmarshal(responseBody, &jsonErr)
 	if err == nil {
 		return SalesforceError{
 			Message: fmt.Sprintf(
 				logPrefix+" Error. http code: %v Error Message:  %v Error Code: %v",
-				statusCode, jsonError[0].Message, jsonError[0].ErrorCode,
+				statusCode, jsonErr[0].Message, jsonErr[0].ErrorCode,
 			),
 			HttpCode:     statusCode,
-			ErrorCode:    jsonError[0].ErrorCode,
-			ErrorMessage: jsonError[0].Message,
+			ErrorCode:    jsonErr[0].ErrorCode,
+			ErrorMessage: jsonErr[0].Message,
 		}
 	}
 
-	xmlError := xmlError{}
-	err = xml.Unmarshal(responseBody, &xmlError)
+	xmlErr := xmlError{}
+	err = xml.Unmarshal(responseBody, &xmlErr)
 	if err == nil {
 		return SalesforceError{
 			Message: fmt.Sprintf(
 				logPrefix+" Error. http code: %v Error Message:  %v Error Code: %v",
-				statusCode, xmlError.Message, xmlError.ErrorCode,
+				statusCode, xmlErr.Message, xmlErr.ErrorCode,
 			),
 			HttpCode:     statusCode,
-			ErrorCode:    xmlError.ErrorCode,
-			ErrorMessage: xmlError.Message,
+			ErrorCode:    xmlErr.ErrorCode,
+			ErrorMessage: xmlErr.Message,
 		}
 	}
 

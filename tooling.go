@@ -10,13 +10,13 @@ import (
 
 // ExecuteAnonymousResult is returned by ExecuteAnonymous function
 type ExecuteAnonymousResult struct {
-	Line                int         `json:"line"`
-	Column              int         `json:"column"`
-	Compiled            bool        `json:"compiled"`
-	Success             bool        `json:"success"`
-	CompileProblem      interface{} `json:"compileProblem"`
-	ExceptionStackTrace interface{} `json:"exceptionStackTrace"`
-	ExceptionMessage    interface{} `json:"exceptionMessage"`
+	Line                int  `json:"line"`
+	Column              int  `json:"column"`
+	Compiled            bool `json:"compiled"`
+	Success             bool `json:"success"`
+	CompileProblem      any  `json:"compileProblem"`
+	ExceptionStackTrace any  `json:"exceptionStackTrace"`
+	ExceptionMessage    any  `json:"exceptionMessage"`
 }
 
 // Tooling is called to specify Tooling API, e.g. client.Tooling().Query(q)
@@ -57,4 +57,8 @@ func (client *Client) ExecuteAnonymousWithContext(ctx context.Context, apexBody 
 	}
 
 	return &result, nil
+}
+
+type Logger interface {
+	Println(v ...any)
 }

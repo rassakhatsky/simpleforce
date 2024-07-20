@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"html"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -39,6 +38,7 @@ type Client struct {
 	instanceURL   string
 	useToolingAPI bool
 	httpClient    *http.Client
+	logger        Logger
 }
 
 // QueryResult holds the response data from an SOQL query.
@@ -91,7 +91,7 @@ func (client *Client) QueryWithContext(ctx context.Context, q string) (*QueryRes
 
 	data, err := client.httpRequest(ctx, "GET", u, nil)
 	if err != nil {
-		log.Println(logPrefix, "HTTP GET request failed:", u)
+		client.logger.Println(logPrefix, "HTTP GET request failed:", u)
 		return nil, err
 	}
 
@@ -123,7 +123,7 @@ func (client *Client) ApexRESTWithContext(ctx context.Context, method, path stri
 
 	data, err := client.httpRequest(ctx, method, u, requestBody)
 	if err != nil {
-		log.Println(logPrefix, fmt.Sprintf("HTTP %s request failed:", method), u)
+		client.logger.Println(logPrefix, fmt.Sprintf("HTTP %s request failed:", method), u)
 		return nil, err
 	}
 
@@ -180,7 +180,7 @@ func (client *Client) LoginPasswordWithContext(ctx context.Context, username, pa
 	url := fmt.Sprintf("%s/services/Soap/u/%s", client.baseURL, client.apiVersion)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(soapBody))
 	if err != nil {
-		log.Println(logPrefix, "error occurred creating request,", err)
+		client.logger.Println(logPrefix, "error occurred creating request,", err)
 		return err
 	}
 	req.Header.Add("Content-Type", "text/xml")
@@ -189,25 +189,24 @@ func (client *Client) LoginPasswordWithContext(ctx context.Context, username, pa
 
 	resp, err := client.httpClient.Do(req)
 	if err != nil {
-		log.Println(logPrefix, "error occurred submitting request,", err)
+		client.logger.Println(logPrefix, "error occurred submitting request,", err)
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Println(logPrefix, "request failed,", resp.StatusCode)
+		client.logger.Println(logPrefix, "request failed,", resp.StatusCode)
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(resp.Body)
 		newStr := buf.String()
-		log.Println(logPrefix, "Failed resp.body: ", newStr)
+		client.logger.Println(logPrefix, "Failed resp.body: ", newStr)
 		theError := ParseSalesforceError(resp.StatusCode, buf.Bytes())
 		return theError
 	}
 
-	respData, err := ioutil.ReadAll(resp.Body)
-
+	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Println(logPrefix, "error occurred reading response data,", err)
+		client.logger.Println(logPrefix, "error occurred reading response data,", err)
 	}
 
 	var loginResponse struct {
@@ -222,7 +221,7 @@ func (client *Client) LoginPasswordWithContext(ctx context.Context, username, pa
 
 	err = xml.Unmarshal(respData, &loginResponse)
 	if err != nil {
-		log.Println(logPrefix, "error occurred parsing login response,", err)
+		client.logger.Println(logPrefix, "error occurred parsing login response,", err)
 		return err
 	}
 
@@ -234,7 +233,7 @@ func (client *Client) LoginPasswordWithContext(ctx context.Context, username, pa
 	client.user.email = loginResponse.UserEmail
 	client.user.fullName = loginResponse.UserFullName
 
-	log.Println(logPrefix, "User", client.user.name, "authenticated.")
+	client.logger.Println(logPrefix, "User", client.user.name, "authenticated.")
 	return nil
 }
 
@@ -255,16 +254,16 @@ func (client *Client) httpRequest(ctx context.Context, method, url string, body 
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		log.Println(logPrefix, "request failed,", resp.StatusCode)
+		client.logger.Println(logPrefix, "request failed,", resp.StatusCode)
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(resp.Body)
 		newStr := buf.String()
 		theError := ParseSalesforceError(resp.StatusCode, buf.Bytes())
-		log.Println(logPrefix, "Failed resp.body: ", newStr)
+		client.logger.Println(logPrefix, "Failed resp.body: ", newStr)
 		return nil, theError
 	}
 
-	return ioutil.ReadAll(resp.Body)
+	return io.ReadAll(resp.Body)
 }
 
 // makeURL generates a REST API URL based on baseURL, APIVersion of the client.
@@ -281,6 +280,7 @@ func NewClient(url, clientID, apiVersion string) *Client {
 		baseURL:    url,
 		clientID:   clientID,
 		httpClient: &http.Client{},
+		logger:     log.New(os.Stdout, "", log.LstdFlags),
 	}
 
 	// Remove trailing "/" from base url to prevent "//" when paths are appended
@@ -294,26 +294,40 @@ func (client *Client) SetHttpClient(c *http.Client) {
 	client.httpClient = c
 }
 
+func (client *Client) SetLogger(l Logger) {
+	client.logger = l
+}
+
 // DownloadFile downloads a file based on the REST API path given. Saves to filePath.
 func (client *Client) DownloadFile(contentVersionID string, filepath string) error {
+	return client.DownloadFileWithContext(context.Background(), contentVersionID, filepath)
+}
+
+func (client *Client) DownloadFileWithContext(ctx context.Context, contentVersionID string, filepath string) error {
 	apiPath := fmt.Sprintf("/services/data/v%s/sobjects/ContentVersion/%s/VersionData", client.apiVersion, contentVersionID)
-	return client.download(apiPath, filepath)
+	return client.download(ctx, apiPath, filepath)
 }
 
 func (client *Client) DownloadAttachment(attachmentId string, filepath string) error {
-	apiPath := fmt.Sprintf("/services/data/v%s/sobjects/Attachment/%s/Body", client.apiVersion, attachmentId)
-	return client.download(apiPath, filepath)
+	return client.DownloadAttachmentWithContext(context.Background(), attachmentId, filepath)
 }
 
-func (client *Client) download(apiPath string, filepath string) error {
-	// Get the data
-	httpClient := client.httpClient
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s", strings.TrimRight(client.instanceURL, "/"), apiPath), nil)
+func (client *Client) DownloadAttachmentWithContext(ctx context.Context, attachmentId string, filepath string) error {
+	apiPath := fmt.Sprintf("/services/data/v%s/sobjects/Attachment/%s/Body", client.apiVersion, attachmentId)
+	return client.download(ctx, apiPath, filepath)
+}
+
+func (client *Client) download(ctx context.Context, apiPath string, filepath string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s%s", strings.TrimRight(client.instanceURL, "/"), apiPath), nil)
+	if err != nil {
+		return err
+	}
+
 	req.Header.Add("Content-Type", "application/json; charset=UTF-8")
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Authorization", "Bearer "+client.sessionID)
 
-	resp, err := httpClient.Do(req)
+	resp, err := client.httpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -347,11 +361,18 @@ func parseHost(input string) string {
 
 // Get the List of all available objects and their metadata for your organization's data
 func (client *Client) DescribeGlobal() (*SObjectMeta, error) {
+	return client.DescribeGlobalWithContext(context.Background())
+}
+
+func (client *Client) DescribeGlobalWithContext(ctx context.Context) (*SObjectMeta, error) {
 	apiPath := fmt.Sprintf("/services/data/v%s/sobjects", client.apiVersion)
 	baseURL := strings.TrimRight(client.baseURL, "/")
 	url := fmt.Sprintf("%s%s", baseURL, apiPath) // Get the objects
 	httpClient := client.httpClient
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
 	req.Header.Add("Content-Type", "application/json; charset=UTF-8")
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Authorization", "Bearer "+client.sessionID)
@@ -364,10 +385,10 @@ func (client *Client) DescribeGlobal() (*SObjectMeta, error) {
 
 	var meta SObjectMeta
 
-	respData, err := ioutil.ReadAll(resp.Body)
-	log.Println(logPrefix, fmt.Sprintf("status code %d", resp.StatusCode))
+	respData, err := io.ReadAll(resp.Body)
+	client.logger.Println(logPrefix, fmt.Sprintf("status code %d", resp.StatusCode))
 	if err != nil {
-		log.Println(logPrefix, "error while reading all body")
+		client.logger.Println(logPrefix, "error while reading all body")
 	}
 
 	err = json.Unmarshal(respData, &meta)

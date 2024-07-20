@@ -82,10 +82,6 @@ func TestClient_LoginPasswordNoToken(t *testing.T) {
 	}
 }
 
-func TestClient_LoginOAuth(t *testing.T) {
-
-}
-
 func TestClient_Query(t *testing.T) {
 	client := requireClient(t, true)
 
