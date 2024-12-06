@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 const (
@@ -356,6 +357,17 @@ func (obj *SObject) SObjectField(typeName, key string) *SObject {
 // InterfaceField accesses a field in the SObject as raw interface. This allows access to any type of fields.
 func (obj *SObject) InterfaceField(key string) any {
 	return (*obj)[key]
+}
+
+func (obj *SObject) TimeField(key string) (t time.Time) {
+	value := obj.InterfaceField(key)
+	switch v := value.(type) {
+	case string:
+		if t, err := time.Parse("2006-01-02T15:04:05.000+0000", v); err == nil {
+			return t
+		}
+	}
+	return
 }
 
 // AttributesField returns a read-only copy of the attributes field of an SObject.

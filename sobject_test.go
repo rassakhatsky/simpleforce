@@ -316,3 +316,16 @@ func TestSObject_GetUpdate(t *testing.T) {
 	user1 := client.SObject("User").Create()
 	log.Println(user1.ID())
 }
+
+func TestSObject_TimeField(t *testing.T) {
+	obj := &SObject{}
+	if obj.InterfaceField("test_key") != nil {
+		t.Fail()
+	}
+
+	timestamp := time.Date(2024, 1, 12, 23, 15, 30, 0, time.UTC)
+	(*obj)["test_key"] = "2024-01-12T23:15:30.000+0000"
+	if v := obj.TimeField("test_key"); v.Unix() != timestamp.Unix() {
+		t.Error("Time mismatch")
+	}
+}
