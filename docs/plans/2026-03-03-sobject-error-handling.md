@@ -66,12 +66,12 @@
 - [x] Run tests — must pass before task 4
 
 ### Task 4: Change Update to return (*SObject, error)
-- [ ] Write unit tests for `UpdateWithContext` expecting `(*SObject, error)` return: test missing type, missing client, missing ID, marshal failure, HTTP failure
-- [ ] Update `UpdateWithContext` signature to return `(*SObject, error)`
-- [ ] Update `Update` wrapper to return `(*SObject, error)`
-- [ ] Replace `log.Println()` calls in Update with `client.logger.Println()` / error returns
-- [ ] Remove orphaned `log.Println(string(respData))` on line 188
-- [ ] Run tests — must pass before task 5
+- [x] Write unit tests for `UpdateWithContext` expecting `(*SObject, error)` return: test missing type, missing client, missing ID, marshal failure, HTTP failure
+- [x] Update `UpdateWithContext` signature to return `(*SObject, error)`
+- [x] Update `Update` wrapper to return `(*SObject, error)`
+- [x] Replace `log.Println()` calls in Update with `client.logger.Println()` / error returns
+- [x] Remove orphaned `log.Println(string(respData))` on line 188
+- [x] Run tests — must pass before task 5
 
 ### Task 5: Change Upsert to return (*SObject, error)
 - [ ] Write unit tests for `UpsertWithContext` expecting `(*SObject, error)` return: test missing type, missing client, missing external ID field, missing external ID, marshal failure, HTTP failure, parse failure

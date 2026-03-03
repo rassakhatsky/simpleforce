@@ -153,24 +153,29 @@ func (obj *SObject) CreateWithContext(ctx context.Context) (*SObject, error) {
 	return obj, nil
 }
 
-// Update updates SObject in place. Upon successful, same SObject is returned for chained access.
+// Update updates SObject in place. Upon successful update, the same SObject pointer is returned.
+// Returns the SObject and nil error on success; returns nil and an error on failure.
 // ID is required.
-func (obj *SObject) Update() *SObject {
+func (obj *SObject) Update() (*SObject, error) {
 	return obj.UpdateWithContext(context.Background())
 }
 
-func (obj *SObject) UpdateWithContext(ctx context.Context) *SObject {
-	if obj.Type() == "" || obj.client() == nil || obj.ID() == "" {
-		// Sanity check.
-		return nil
+func (obj *SObject) UpdateWithContext(ctx context.Context) (*SObject, error) {
+	if obj.Type() == "" {
+		return nil, fmt.Errorf("%w: SObject type is empty", ErrObjectTypeMissing)
+	}
+	if obj.client() == nil {
+		return nil, fmt.Errorf("%w: SObject has no associated client", ErrObjectClientMissing)
+	}
+	if obj.ID() == "" {
+		return nil, fmt.Errorf("%w: SObject has no ID set", ErrObjectIDMissing)
 	}
 
 	// Make a copy of the incoming SObject, but skip certain metadata fields as they're not understood by salesforce.
 	reqObj := obj.makeCopy()
 	reqData, err := json.Marshal(reqObj)
 	if err != nil {
-		log.Println(logPrefix, "failed to convert sobject to json,", err)
-		return nil
+		return nil, fmt.Errorf("%w: %v", ErrMarshalRequest, err)
 	}
 
 	queryBase := "sobjects/"
@@ -178,14 +183,12 @@ func (obj *SObject) UpdateWithContext(ctx context.Context) *SObject {
 		queryBase = "tooling/sobjects/"
 	}
 	url := obj.client().makeURL(queryBase + obj.Type() + "/" + obj.ID())
-	respData, err := obj.client().httpRequest(ctx, http.MethodPatch, url, bytes.NewReader(reqData))
+	_, err = obj.client().httpRequest(ctx, http.MethodPatch, url, bytes.NewReader(reqData))
 	if err != nil {
-		log.Println(logPrefix, "failed to process http request,", err)
-		return nil
+		return nil, fmt.Errorf("%w: %v", ErrHTTPRequest, err)
 	}
-	log.Println(string(respData))
 
-	return obj
+	return obj, nil
 }
 
 // Upsert creates SObject or updates existing SObject in place. Upon successful upsert, same SObject is returned for chained access.

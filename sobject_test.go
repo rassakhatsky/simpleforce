@@ -227,11 +227,11 @@ func TestSObject_Update(t *testing.T) {
 	if err != nil || created == nil {
 		t.Fatalf("failed to create case: %v", err)
 	}
-	updated := created.
+	updated, err := created.
 		Set("Subject", "Case subject updated by simpleforce").
 		Update()
-	if updated == nil {
-		t.Fatal("failed to update case")
+	if err != nil || updated == nil {
+		t.Fatalf("failed to update case: %v", err)
 	}
 	got, err := updated.Get()
 	if err != nil {
@@ -377,11 +377,11 @@ func TestSObject_GetUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get case by ID: %v", err)
 	}
-	updated := case2.
+	updated, err := case2.
 		Set("Subject", "Updated").
 		Update()
-	if updated == nil {
-		t.Fatal("failed to update case")
+	if err != nil || updated == nil {
+		t.Fatalf("failed to update case: %v", err)
 	}
 	case2got, err := updated.Get()
 	if err != nil {
@@ -694,5 +694,125 @@ func TestCreate_DelegatesToCreateWithContext(t *testing.T) {
 	}
 	if result.ID() != "001NEW" {
 		t.Errorf("expected ID '001NEW', got '%s'", result.ID())
+	}
+}
+
+// --- UpdateWithContext unit tests ---
+
+func TestUpdateWithContext_MissingType(t *testing.T) {
+	obj := &SObject{}
+	result, err := obj.UpdateWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for missing type")
+	}
+	if !errors.Is(err, ErrObjectTypeMissing) {
+		t.Errorf("expected ErrObjectTypeMissing, got %v", err)
+	}
+}
+
+func TestUpdateWithContext_MissingClient(t *testing.T) {
+	obj := &SObject{}
+	obj.setType("Case")
+	result, err := obj.UpdateWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for missing client")
+	}
+	if !errors.Is(err, ErrObjectClientMissing) {
+		t.Errorf("expected ErrObjectClientMissing, got %v", err)
+	}
+}
+
+func TestUpdateWithContext_MissingID(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("HTTP request should not be made when ID is missing")
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	result, err := obj.UpdateWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for missing ID")
+	}
+	if !errors.Is(err, ErrObjectIDMissing) {
+		t.Errorf("expected ErrObjectIDMissing, got %v", err)
+	}
+}
+
+func TestUpdateWithContext_MarshalFailure(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("HTTP request should not be made when marshal fails")
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	obj.setID("001ABC")
+	obj.Set("BadField", make(chan int))
+	result, err := obj.UpdateWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for marshal failure")
+	}
+	if !errors.Is(err, ErrMarshalRequest) {
+		t.Errorf("expected ErrMarshalRequest, got %v", err)
+	}
+}
+
+func TestUpdateWithContext_HTTPError(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, `[{"message":"invalid","errorCode":"INVALID_FIELD"}]`)
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	obj.setID("001ABC")
+	obj.Set("Subject", "Test")
+	result, err := obj.UpdateWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for HTTP error")
+	}
+	if !errors.Is(err, ErrHTTPRequest) {
+		t.Errorf("expected ErrHTTPRequest, got %v", err)
+	}
+}
+
+func TestUpdateWithContext_Success(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	obj.setID("001ABC")
+	obj.Set("Subject", "Updated Subject")
+	result, err := obj.UpdateWithContext(context.Background())
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if result != obj {
+		t.Error("expected result to be same pointer as obj (in-place update)")
+	}
+}
+
+func TestUpdate_DelegatesToUpdateWithContext(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	obj.setID("001ABC")
+	obj.Set("Subject", "Test")
+	result, err := obj.Update()
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
 	}
 }
