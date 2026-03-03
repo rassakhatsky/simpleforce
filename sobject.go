@@ -117,41 +117,40 @@ func (obj *SObject) GetWithContext(ctx context.Context, id ...string) (*SObject,
 }
 
 // Create posts the JSON representation of the SObject to salesforce to create the entry.
-// If the creation is successful, the ID of the SObject instance is updated with the ID returned. Otherwise, nil is
-// returned for failures.
+// If the creation is successful, the ID of the SObject instance is updated with the ID returned.
+// Returns the SObject and nil error on success; returns nil and an error on failure.
 // Ref: https://developer.salesforce.com/docs/atlas.en-us.214.0.api_rest.meta/api_rest/dome_sobject_create.htm
-func (obj *SObject) Create() *SObject {
+func (obj *SObject) Create() (*SObject, error) {
 	return obj.CreateWithContext(context.Background())
 }
 
-func (obj *SObject) CreateWithContext(ctx context.Context) *SObject {
-	if obj.Type() == "" || obj.client() == nil {
-		// Sanity check.
-		return nil
+func (obj *SObject) CreateWithContext(ctx context.Context) (*SObject, error) {
+	if obj.Type() == "" {
+		return nil, fmt.Errorf("%w: SObject type is empty", ErrObjectTypeMissing)
+	}
+	if obj.client() == nil {
+		return nil, fmt.Errorf("%w: SObject has no associated client", ErrObjectClientMissing)
 	}
 
 	// Make a copy of the incoming SObject, but skip certain metadata fields as they're not understood by salesforce.
 	reqObj := obj.makeCopy()
 	reqData, err := json.Marshal(reqObj)
 	if err != nil {
-		log.Println(logPrefix, "failed to convert sobject to json,", err)
-		return nil
+		return nil, fmt.Errorf("%w: %v", ErrMarshalRequest, err)
 	}
 
 	url := obj.client().makeURL("sobjects/" + obj.Type() + "/")
 	respData, err := obj.client().httpRequest(ctx, http.MethodPost, url, bytes.NewReader(reqData))
 	if err != nil {
-		log.Println(logPrefix, "failed to process http request,", err)
-		return nil
+		return nil, fmt.Errorf("%w: %v", ErrHTTPRequest, err)
 	}
 
 	err = obj.setIDFromResponseData(respData)
 	if err != nil {
-		log.Println(logPrefix, "failed to parse response,", err)
-		return nil
+		return nil, fmt.Errorf("%w: %v", ErrParseResponse, err)
 	}
 
-	return obj
+	return obj, nil
 }
 
 // Update updates SObject in place. Upon successful, same SObject is returned for chained access.

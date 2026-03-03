@@ -153,9 +153,12 @@ func TestSObject_Create(t *testing.T) {
 
 	// Positive
 	case1 := client.SObject("Case")
-	case1Result := case1.Set("Subject", "Case created by simpleforce on "+time.Now().Format("2006/01/02 03:04:05")).
-		Set("Comments", "This case is created by simpleforce").
-		Create()
+	case1.Set("Subject", "Case created by simpleforce on "+time.Now().Format("2006/01/02 03:04:05")).
+		Set("Comments", "This case is created by simpleforce")
+	case1Result, err := case1.Create()
+	if err != nil {
+		t.Fatalf("failed to create case: %v", err)
+	}
 	if case1Result == nil || case1Result.ID() == "" || case1Result.Type() != case1.Type() {
 		t.Fail()
 	} else {
@@ -168,10 +171,13 @@ func TestSObject_Create(t *testing.T) {
 
 	// Positive 2
 	caseComment1 := client.SObject("CaseComment")
-	caseComment1Result := caseComment1.Set("ParentId", case1Result.ID()).
+	caseComment1.Set("ParentId", case1Result.ID()).
 		Set("CommentBody", "This comment is created by simpleforce & used for testing").
-		Set("IsPublished", true).
-		Create()
+		Set("IsPublished", true)
+	caseComment1Result, err := caseComment1.Create()
+	if err != nil {
+		t.Fatalf("failed to create comment: %v", err)
+	}
 	commentObj, err := caseComment1Result.Get()
 	if err != nil {
 		t.Fatalf("failed to get created comment: %v", err)
@@ -184,26 +190,30 @@ func TestSObject_Create(t *testing.T) {
 
 	// Negative: object without type.
 	obj := client.SObject()
-	if obj.Create() != nil {
-		t.Fail()
+	_, err = obj.Create()
+	if err == nil {
+		t.Error("expected error for object without type")
 	}
 
 	// Negative: object without client.
 	obj = &SObject{}
-	if obj.Create() != nil {
-		t.Fail()
+	_, err = obj.Create()
+	if err == nil {
+		t.Error("expected error for object without client")
 	}
 
 	// Negative: Invalid type
 	obj = client.SObject("__SOME_INVALID_TYPE__")
-	if obj.Create() != nil {
-		t.Fail()
+	_, err = obj.Create()
+	if err == nil {
+		t.Error("expected error for invalid type")
 	}
 
 	// Negative: Invalid field
 	obj = client.SObject("Case").Set("__SOME_INVALID_FIELD__", "")
-	if obj.Create() != nil {
-		t.Fail()
+	_, err = obj.Create()
+	if err == nil {
+		t.Error("expected error for invalid field")
 	}
 }
 
@@ -211,11 +221,11 @@ func TestSObject_Update(t *testing.T) {
 	client := requireClient(t, true)
 
 	// Positive
-	created := client.SObject("Case").
+	created, err := client.SObject("Case").
 		Set("Subject", "Case created by simpleforce on "+time.Now().Format("2006/01/02 03:04:05")).
 		Create()
-	if created == nil {
-		t.Fatal("failed to create case")
+	if err != nil || created == nil {
+		t.Fatalf("failed to create case: %v", err)
 	}
 	updated := created.
 		Set("Subject", "Case subject updated by simpleforce").
@@ -256,7 +266,10 @@ func TestSObject_Upsert(t *testing.T) {
 	case2 := client.SObject("Case").
 		Set("Subject", "Case created by simpleforce on "+time.Now().Format("2006/01/02 03:04:05")).
 		Set("customExtIdField__c", uuid.NewString())
-	case2Result := case2.Create()
+	case2Result, err := case2.Create()
+	if err != nil {
+		t.Fatalf("failed to create case2: %v", err)
+	}
 	case2.
 		Set("Subject", "Case subject updated by simpleforce").
 		Set("ExternalIDField", "customExtIdField__c").
@@ -316,11 +329,11 @@ func TestSObject_Delete(t *testing.T) {
 	client := requireClient(t, true)
 
 	// Positive: create a case first then delete it and verify if it is gone.
-	created := client.SObject("Case").
+	created, err := client.SObject("Case").
 		Set("Subject", "Case created by simpleforce on "+time.Now().Format("2006/01/02 03:04:05")).
 		Create()
-	if created == nil || created.ID() == "" {
-		t.Fatal("failed to create case")
+	if err != nil || created == nil || created.ID() == "" {
+		t.Fatalf("failed to create case: %v", err)
 	}
 	case1, err := created.Get()
 	if err != nil {
@@ -348,11 +361,11 @@ func TestSObject_GetUpdate(t *testing.T) {
 	client := requireClient(t, true)
 
 	// Create a new case first.
-	created := client.SObject("Case").
+	created, err := client.SObject("Case").
 		Set("Subject", "Original").
 		Create()
-	if created == nil {
-		t.Fatal("failed to create case")
+	if err != nil || created == nil {
+		t.Fatalf("failed to create case: %v", err)
 	}
 	case1, err := created.Get()
 	if err != nil {
@@ -385,8 +398,10 @@ func TestSObject_GetUpdate(t *testing.T) {
 		t.Fail()
 	}
 
-	user1 := client.SObject("User").Create()
-	log.Println(user1.ID())
+	user1, _ := client.SObject("User").Create()
+	if user1 != nil {
+		log.Println(user1.ID())
+	}
 }
 
 func TestSObject_TimeField(t *testing.T) {
@@ -556,5 +571,128 @@ func TestGet_DelegatesToGetWithContext(t *testing.T) {
 	}
 	if result.ID() != "001ABC" {
 		t.Errorf("expected ID '001ABC', got '%s'", result.ID())
+	}
+}
+
+// --- CreateWithContext unit tests ---
+
+func TestCreateWithContext_MissingType(t *testing.T) {
+	obj := &SObject{}
+	result, err := obj.CreateWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for missing type")
+	}
+	if !errors.Is(err, ErrObjectTypeMissing) {
+		t.Errorf("expected ErrObjectTypeMissing, got %v", err)
+	}
+}
+
+func TestCreateWithContext_MissingClient(t *testing.T) {
+	obj := &SObject{}
+	obj.setType("Case")
+	result, err := obj.CreateWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for missing client")
+	}
+	if !errors.Is(err, ErrObjectClientMissing) {
+		t.Errorf("expected ErrObjectClientMissing, got %v", err)
+	}
+}
+
+func TestCreateWithContext_MarshalFailure(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("HTTP request should not be made when marshal fails")
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	// A channel value cannot be marshalled to JSON
+	obj.Set("BadField", make(chan int))
+	result, err := obj.CreateWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for marshal failure")
+	}
+	if !errors.Is(err, ErrMarshalRequest) {
+		t.Errorf("expected ErrMarshalRequest, got %v", err)
+	}
+}
+
+func TestCreateWithContext_HTTPError(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, `[{"message":"invalid","errorCode":"INVALID_FIELD"}]`)
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case").Set("Subject", "Test")
+	result, err := obj.CreateWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for HTTP error")
+	}
+	if !errors.Is(err, ErrHTTPRequest) {
+		t.Errorf("expected ErrHTTPRequest, got %v", err)
+	}
+}
+
+func TestCreateWithContext_ParseFailure(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		fmt.Fprint(w, `not valid json`)
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case").Set("Subject", "Test")
+	result, err := obj.CreateWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for parse failure")
+	}
+	if !errors.Is(err, ErrParseResponse) {
+		t.Errorf("expected ErrParseResponse, got %v", err)
+	}
+}
+
+func TestCreateWithContext_Success(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusCreated)
+		fmt.Fprint(w, `{"id":"001NEW","success":true}`)
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case").Set("Subject", "Test Case")
+	result, err := obj.CreateWithContext(context.Background())
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if result != obj {
+		t.Error("expected result to be same pointer as obj")
+	}
+	if result.ID() != "001NEW" {
+		t.Errorf("expected ID '001NEW', got '%s'", result.ID())
+	}
+}
+
+func TestCreate_DelegatesToCreateWithContext(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		fmt.Fprint(w, `{"id":"001NEW","success":true}`)
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case").Set("Subject", "Test")
+	result, err := obj.Create()
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if result.ID() != "001NEW" {
+		t.Errorf("expected ID '001NEW', got '%s'", result.ID())
 	}
 }
