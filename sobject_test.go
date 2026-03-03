@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -1022,5 +1023,124 @@ func TestUpsert_DelegatesToUpsertWithContext(t *testing.T) {
 	}
 	if result.ID() != "001NEW" {
 		t.Errorf("expected ID '001NEW', got '%s'", result.ID())
+	}
+}
+
+// --- DeleteWithContext unit tests ---
+
+func TestDeleteWithContext_MissingType(t *testing.T) {
+	obj := &SObject{}
+	err := obj.DeleteWithContext(context.Background())
+	if err == nil {
+		t.Error("expected error for missing type")
+	}
+	if !errors.Is(err, ErrObjectTypeMissing) {
+		t.Errorf("expected ErrObjectTypeMissing, got %v", err)
+	}
+}
+
+func TestDeleteWithContext_MissingClient(t *testing.T) {
+	obj := &SObject{}
+	obj.setType("Case")
+	err := obj.DeleteWithContext(context.Background())
+	if err == nil {
+		t.Error("expected error for missing client")
+	}
+	if !errors.Is(err, ErrObjectClientMissing) {
+		t.Errorf("expected ErrObjectClientMissing, got %v", err)
+	}
+}
+
+func TestDeleteWithContext_MissingID(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("HTTP request should not be made when ID is missing")
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	err := obj.DeleteWithContext(context.Background())
+	if err == nil {
+		t.Error("expected error for missing ID")
+	}
+	if !errors.Is(err, ErrObjectIDMissing) {
+		t.Errorf("expected ErrObjectIDMissing, got %v", err)
+	}
+}
+
+func TestDeleteWithContext_UsesProvidedID(t *testing.T) {
+	var requestedURL string
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		requestedURL = r.URL.Path
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	obj.setID("OBJ_OWN_ID") // Set object's own ID
+	// Pass a different ID as parameter — this should be used, not OBJ_OWN_ID
+	err := obj.DeleteWithContext(context.Background(), "PROVIDED_ID")
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if !strings.Contains(requestedURL, "PROVIDED_ID") {
+		t.Errorf("expected URL to contain 'PROVIDED_ID', got %q", requestedURL)
+	}
+	if strings.Contains(requestedURL, "OBJ_OWN_ID") {
+		t.Errorf("URL should NOT contain 'OBJ_OWN_ID' when explicit ID is provided, got %q", requestedURL)
+	}
+}
+
+func TestDeleteWithContext_UsesObjectID(t *testing.T) {
+	var requestedURL string
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		requestedURL = r.URL.Path
+		w.WriteHeader(http.StatusNoContent)
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	obj.setID("OBJ_OWN_ID")
+	// No explicit ID passed — should use obj.ID()
+	err := obj.DeleteWithContext(context.Background())
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if !strings.Contains(requestedURL, "OBJ_OWN_ID") {
+		t.Errorf("expected URL to contain 'OBJ_OWN_ID', got %q", requestedURL)
+	}
+}
+
+func TestDeleteWithContext_HTTPError(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, `[{"message":"not found","errorCode":"NOT_FOUND"}]`)
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	err := obj.DeleteWithContext(context.Background(), "bad-id")
+	if err == nil {
+		t.Error("expected error for HTTP 404 response")
+	}
+}
+
+func TestDelete_DelegatesToDeleteWithContext(t *testing.T) {
+	var requestedURL string
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		requestedURL = r.URL.Path
+		w.WriteHeader(http.StatusNoContent)
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	err := obj.Delete("TEST_ID")
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if !strings.Contains(requestedURL, "TEST_ID") {
+		t.Errorf("expected URL to contain 'TEST_ID', got %q", requestedURL)
 	}
 }

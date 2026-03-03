@@ -82,11 +82,11 @@
 - [x] Run tests — must pass before task 6
 
 ### Task 6: Fix Delete bug and clean up logging
-- [ ] Write unit test for `DeleteWithContext` with explicit `id` parameter — verify it uses the provided ID, not `obj.ID()`
-- [ ] Fix line 262: change `obj.ID()` to `oid` so the `id` parameter is actually used in the URL
-- [ ] Replace `log.Println(url)` on line 263 with `client.logger.Println()`
-- [ ] Replace `log.Println()` usage with `client.logger.Println()` where client is available
-- [ ] Run tests — must pass before task 7
+- [x] Write unit test for `DeleteWithContext` with explicit `id` parameter — verify it uses the provided ID, not `obj.ID()`
+- [x] Fix line 262: change `obj.ID()` to `oid` so the `id` parameter is actually used in the URL
+- [x] Replace `log.Println(url)` on line 263 with `client.logger.Println()`
+- [x] Replace `log.Println()` usage with `client.logger.Println()` where client is available
+- [x] Run tests — must pass before task 7
 
 ### Task 7: Update integration tests for new signatures
 - [ ] Update `TestSObject_Get` — handle `(*SObject, error)` returns, verify errors on negative cases

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -249,21 +248,23 @@ func (obj *SObject) Delete(id ...string) error {
 }
 
 func (obj *SObject) DeleteWithContext(ctx context.Context, id ...string) error {
-	if obj.Type() == "" || obj.client() == nil {
-		// Sanity check
-		return ErrFailure
+	if obj.Type() == "" {
+		return fmt.Errorf("%w: SObject type is empty", ErrObjectTypeMissing)
+	}
+	if obj.client() == nil {
+		return fmt.Errorf("%w: SObject has no associated client", ErrObjectClientMissing)
 	}
 
 	oid := obj.ID()
-	if id != nil {
+	if len(id) > 0 {
 		oid = id[0]
 	}
 	if oid == "" {
-		return ErrFailure
+		return fmt.Errorf("%w: no ID provided and SObject has no ID set", ErrObjectIDMissing)
 	}
 
-	url := obj.client().makeURL("sobjects/" + obj.Type() + "/" + obj.ID())
-	log.Println(url)
+	url := obj.client().makeURL("sobjects/" + obj.Type() + "/" + oid)
+	obj.client().logger.Println(logPrefix, url)
 	_, err := obj.client().httpRequest(ctx, http.MethodDelete, url, nil)
 	if err != nil {
 		return err
@@ -343,7 +344,9 @@ func (obj *SObject) SObjectField(typeName, key string) *SObject {
 	rIndex := strings.LastIndex(url, "/")
 	if rIndex == -1 || rIndex+1 == len(url) {
 		// hmm... this shouldn't happen, unless the URL is hand crafted.
-		log.Println(logPrefix, "invalid url,", url)
+		if obj.client() != nil {
+			obj.client().logger.Println(logPrefix, "invalid url,", url)
+		}
 		return nil
 	}
 	oid = url[rIndex+1:]
@@ -469,12 +472,16 @@ func (obj *SObject) setIDFromResponseData(respData []byte) error {
 	}
 	err := json.Unmarshal(respData, &respVal)
 	if err != nil {
-		log.Println(logPrefix, "failed to process response data,", err)
+		if obj.client() != nil {
+			obj.client().logger.Println(logPrefix, "failed to process response data,", err)
+		}
 		return err
 	}
 
 	if !respVal.Success || respVal.ID == "" {
-		log.Println(logPrefix, "unsuccessful")
+		if obj.client() != nil {
+			obj.client().logger.Println(logPrefix, "unsuccessful")
+		}
 		return errors.New("request was unsuccessful")
 	}
 
