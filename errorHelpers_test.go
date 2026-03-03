@@ -1,6 +1,8 @@
 package simpleforce
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -52,5 +54,76 @@ func TestUnsuccessfulParse(t *testing.T) {
 	err := ParseSalesforceError(417, []byte(response))
 	if err != unknownError {
 		t.Errorf("failed to parse unknown error, got %s", err)
+	}
+}
+
+func TestSentinelErrors_AreDistinct(t *testing.T) {
+	sentinels := []struct {
+		name string
+		err  error
+	}{
+		{"ErrFailure", ErrFailure},
+		{"ErrAuthentication", ErrAuthentication},
+		{"ErrObjectTypeMissing", ErrObjectTypeMissing},
+		{"ErrObjectClientMissing", ErrObjectClientMissing},
+		{"ErrObjectIDMissing", ErrObjectIDMissing},
+		{"ErrExternalIDMissing", ErrExternalIDMissing},
+		{"ErrMarshalRequest", ErrMarshalRequest},
+		{"ErrHTTPRequest", ErrHTTPRequest},
+		{"ErrParseResponse", ErrParseResponse},
+	}
+
+	for i, a := range sentinels {
+		for j, b := range sentinels {
+			if i != j && errors.Is(a.err, b.err) {
+				t.Errorf("sentinel errors %s and %s should be distinct, but errors.Is returned true", a.name, b.name)
+			}
+		}
+	}
+}
+
+func TestSentinelErrors_ImplementErrorInterface(t *testing.T) {
+	sentinels := []struct {
+		name string
+		err  error
+	}{
+		{"ErrObjectTypeMissing", ErrObjectTypeMissing},
+		{"ErrObjectClientMissing", ErrObjectClientMissing},
+		{"ErrObjectIDMissing", ErrObjectIDMissing},
+		{"ErrExternalIDMissing", ErrExternalIDMissing},
+		{"ErrMarshalRequest", ErrMarshalRequest},
+		{"ErrHTTPRequest", ErrHTTPRequest},
+		{"ErrParseResponse", ErrParseResponse},
+	}
+
+	for _, s := range sentinels {
+		if s.err == nil {
+			t.Errorf("%s should not be nil", s.name)
+		}
+		if s.err.Error() == "" {
+			t.Errorf("%s.Error() should return a non-empty string", s.name)
+		}
+	}
+}
+
+func TestSentinelErrors_WrappingPreservesIdentity(t *testing.T) {
+	sentinels := []struct {
+		name string
+		err  error
+	}{
+		{"ErrObjectTypeMissing", ErrObjectTypeMissing},
+		{"ErrObjectClientMissing", ErrObjectClientMissing},
+		{"ErrObjectIDMissing", ErrObjectIDMissing},
+		{"ErrExternalIDMissing", ErrExternalIDMissing},
+		{"ErrMarshalRequest", ErrMarshalRequest},
+		{"ErrHTTPRequest", ErrHTTPRequest},
+		{"ErrParseResponse", ErrParseResponse},
+	}
+
+	for _, s := range sentinels {
+		wrapped := fmt.Errorf("%w: additional context", s.err)
+		if !errors.Is(wrapped, s.err) {
+			t.Errorf("wrapped %s should be identifiable via errors.Is", s.name)
+		}
 	}
 }

@@ -47,9 +47,9 @@
 ## Implementation Steps
 
 ### Task 1: Add sentinel errors for SObject validation failures
-- [ ] Define new sentinel errors in `errorHelpers.go`: `ErrObjectTypeMissing`, `ErrObjectClientMissing`, `ErrObjectIDMissing`, `ErrExternalIDMissing`, `ErrMarshalRequest`, `ErrHTTPRequest`, `ErrParseResponse`
-- [ ] Write unit tests for new error variables (verify they are distinct, implement `error` interface)
-- [ ] Run tests — must pass before task 2
+- [x] Define new sentinel errors in `errorHelpers.go`: `ErrObjectTypeMissing`, `ErrObjectClientMissing`, `ErrObjectIDMissing`, `ErrExternalIDMissing`, `ErrMarshalRequest`, `ErrHTTPRequest`, `ErrParseResponse`
+- [x] Write unit tests for new error variables (verify they are distinct, implement `error` interface)
+- [x] Run tests — must pass before task 2
 
 ### Task 2: Change Get to return (*SObject, error)
 - [ ] Write unit tests for `GetWithContext` expecting `(*SObject, error)` return: test missing type, missing client, missing ID, successful get (using mock/test SObject)
