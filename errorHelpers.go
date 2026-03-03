@@ -13,6 +13,27 @@ var (
 
 	// ErrAuthentication is returned when authentication failed.
 	ErrAuthentication = errors.New("authentication failure")
+
+	// ErrObjectTypeMissing is returned when an SObject operation requires a type but none is set.
+	ErrObjectTypeMissing = errors.New("SObject type is missing")
+
+	// ErrObjectClientMissing is returned when an SObject has no associated client.
+	ErrObjectClientMissing = errors.New("SObject client is missing")
+
+	// ErrObjectIDMissing is returned when an SObject operation requires an ID but none is set or provided.
+	ErrObjectIDMissing = errors.New("SObject ID is missing")
+
+	// ErrExternalIDMissing is returned when an upsert operation is missing the external ID field or value.
+	ErrExternalIDMissing = errors.New("external ID is missing")
+
+	// ErrMarshalRequest is returned when marshalling the request body fails.
+	ErrMarshalRequest = errors.New("failed to marshal request")
+
+	// ErrHTTPRequest is returned when the HTTP request to Salesforce fails.
+	ErrHTTPRequest = errors.New("HTTP request failed")
+
+	// ErrParseResponse is returned when parsing the Salesforce response fails.
+	ErrParseResponse = errors.New("failed to parse response")
 )
 
 type jsonError []struct {
@@ -40,7 +61,7 @@ func (err SalesforceError) Error() string {
 func ParseSalesforceError(statusCode int, responseBody []byte) (err error) {
 	jsonErr := jsonError{}
 	err = json.Unmarshal(responseBody, &jsonErr)
-	if err == nil {
+	if err == nil && len(jsonErr) > 0 {
 		return SalesforceError{
 			Message: fmt.Sprintf(
 				logPrefix+" Error. http code: %v Error Message:  %v Error Code: %v",
