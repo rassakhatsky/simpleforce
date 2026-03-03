@@ -107,9 +107,9 @@
 - [x] Verify all unit tests pass without SF credentials
 
 ### Task 9: [Final] Update documentation
-- [ ] Update CLAUDE.md — update "Fluent API" section to reflect that CRUD methods now return `(*SObject, error)` instead of `*SObject`
-- [ ] Update CLAUDE.md — note that `log.Println()` in sobject.go has been replaced with `client.logger`
-- [ ] Add/update code comments on changed method signatures
+- [x] Update CLAUDE.md — update "Fluent API" section to reflect that CRUD methods now return `(*SObject, error)` instead of `*SObject`
+- [x] Update CLAUDE.md — note that `log.Println()` in sobject.go has been replaced with `client.logger`
+- [x] Add/update code comments on changed method signatures
 
 ## Technical Details
 
