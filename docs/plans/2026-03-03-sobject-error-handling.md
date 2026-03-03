@@ -74,12 +74,12 @@
 - [x] Run tests — must pass before task 5
 
 ### Task 5: Change Upsert to return (*SObject, error)
-- [ ] Write unit tests for `UpsertWithContext` expecting `(*SObject, error)` return: test missing type, missing client, missing external ID field, missing external ID, marshal failure, HTTP failure, parse failure
-- [ ] Update `UpsertWithContext` signature to return `(*SObject, error)`
-- [ ] Update `Upsert` wrapper to return `(*SObject, error)`
-- [ ] Replace `log.Println()` calls in Upsert with `client.logger.Println()` / error returns
-- [ ] Remove debug logging of ExternalID/ExternalIDField on lines 200-201
-- [ ] Run tests — must pass before task 6
+- [x] Write unit tests for `UpsertWithContext` expecting `(*SObject, error)` return: test missing type, missing client, missing external ID field, missing external ID, marshal failure, HTTP failure, parse failure
+- [x] Update `UpsertWithContext` signature to return `(*SObject, error)`
+- [x] Update `Upsert` wrapper to return `(*SObject, error)`
+- [x] Replace `log.Println()` calls in Upsert with `client.logger.Println()` / error returns
+- [x] Remove debug logging of ExternalID/ExternalIDField on lines 200-201
+- [x] Run tests — must pass before task 6
 
 ### Task 6: Fix Delete bug and clean up logging
 - [ ] Write unit test for `DeleteWithContext` with explicit `id` parameter — verify it uses the provided ID, not `obj.ID()`

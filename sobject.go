@@ -191,28 +191,32 @@ func (obj *SObject) UpdateWithContext(ctx context.Context) (*SObject, error) {
 	return obj, nil
 }
 
-// Upsert creates SObject or updates existing SObject in place. Upon successful upsert, same SObject is returned for chained access.
-// ID, ExternalIDField and Type are required. ID is the value of the external ID in this case.
-func (obj *SObject) Upsert() *SObject {
+// Upsert creates SObject or updates existing SObject in place. Upon successful upsert, the same SObject pointer is returned.
+// Returns the SObject and nil error on success; returns nil and an error on failure.
+// ExternalIDField, external ID value, and Type are required.
+func (obj *SObject) Upsert() (*SObject, error) {
 	return obj.UpsertWithContext(context.Background())
 }
 
-func (obj *SObject) UpsertWithContext(ctx context.Context) *SObject {
-	log.Println(logPrefix, "ExternalID:", obj.ExternalID())
-	log.Println(logPrefix, "ExternalIDField:", obj.ExternalIDFieldName())
-	if obj.Type() == "" || obj.client() == nil || obj.ExternalIDFieldName() == "" ||
-		obj.ExternalID() == "" {
-		// Sanity check.
-		log.Println(logPrefix, "required fields are missing")
-		return nil
+func (obj *SObject) UpsertWithContext(ctx context.Context) (*SObject, error) {
+	if obj.Type() == "" {
+		return nil, fmt.Errorf("%w: SObject type is empty", ErrObjectTypeMissing)
+	}
+	if obj.client() == nil {
+		return nil, fmt.Errorf("%w: SObject has no associated client", ErrObjectClientMissing)
+	}
+	if obj.ExternalIDFieldName() == "" {
+		return nil, fmt.Errorf("%w: ExternalIDField is not set", ErrExternalIDMissing)
+	}
+	if obj.ExternalID() == "" {
+		return nil, fmt.Errorf("%w: external ID value is empty for field %q", ErrExternalIDMissing, obj.ExternalIDFieldName())
 	}
 
 	// Make a copy of the incoming SObject, but skip certain metadata fields as they're not understood by salesforce.
 	reqObj := obj.makeCopy()
 	reqData, err := json.Marshal(reqObj)
 	if err != nil {
-		log.Println(logPrefix, "failed to convert sobject to json,", err)
-		return nil
+		return nil, fmt.Errorf("%w: %v", ErrMarshalRequest, err)
 	}
 
 	queryBase := "sobjects/"
@@ -223,8 +227,7 @@ func (obj *SObject) UpsertWithContext(ctx context.Context) *SObject {
 		makeURL(queryBase + obj.Type() + "/" + obj.ExternalIDFieldName() + "/" + obj.ExternalID())
 	respData, err := obj.client().httpRequest(ctx, http.MethodPatch, url, bytes.NewReader(reqData))
 	if err != nil {
-		log.Println(logPrefix, "failed to process http request,", err)
-		return nil
+		return nil, fmt.Errorf("%w: %v", ErrHTTPRequest, err)
 	}
 
 	// Upsert returns with 201 and id in response if a new record is created. If a record is updated, it returns
@@ -232,12 +235,11 @@ func (obj *SObject) UpsertWithContext(ctx context.Context) *SObject {
 	if len(respData) > 0 {
 		err = obj.setIDFromResponseData(respData)
 		if err != nil {
-			log.Println(logPrefix, "failed to parse response,", err)
-			return nil
+			return nil, fmt.Errorf("%w: %v", ErrParseResponse, err)
 		}
 	}
 
-	return obj
+	return obj, nil
 }
 
 // Delete deletes an SObject record identified by external ID. nil is returned if the operation completes successfully;

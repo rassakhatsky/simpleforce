@@ -247,20 +247,19 @@ func TestSObject_Upsert(t *testing.T) {
 
 	// Positive create new object through upsert
 	case1 := client.SObject("Case")
-	case1Result := case1.Set("Subject", "Case created by simpleforce on "+time.Now().Format("2006/01/02 03:04:05")).
+	case1Result, err := case1.Set("Subject", "Case created by simpleforce on "+time.Now().Format("2006/01/02 03:04:05")).
 		Set("Comments", "This case is created by simpleforce").
 		Set("customExtIdField__c", uuid.NewString()).
 		Set("ExternalIDField", "customExtIdField__c").
 		Upsert()
-	if case1Result == nil || case1Result.ID() == "" || case1Result.Type() != case1.Type() {
-		t.Fail()
-	} else {
-		got, err := case1Result.Get()
-		if err != nil {
-			t.Fatalf("failed to get upserted case: %v", err)
-		}
-		log.Println(logPrefix, "Case created,", got.StringField("CaseNumber"))
+	if err != nil || case1Result == nil || case1Result.ID() == "" || case1Result.Type() != case1.Type() {
+		t.Fatalf("upsert failed: %v", err)
 	}
+	got, err := case1Result.Get()
+	if err != nil {
+		t.Fatalf("failed to get upserted case: %v", err)
+	}
+	log.Println(logPrefix, "Case created,", got.StringField("CaseNumber"))
 
 	// Positive update existing object through upsert
 	case2 := client.SObject("Case").
@@ -270,10 +269,13 @@ func TestSObject_Upsert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create case2: %v", err)
 	}
-	case2.
+	_, err = case2.
 		Set("Subject", "Case subject updated by simpleforce").
 		Set("ExternalIDField", "customExtIdField__c").
 		Upsert()
+	if err != nil {
+		t.Fatalf("upsert update failed: %v", err)
+	}
 	got2, err := case2Result.Get()
 	if err != nil {
 		t.Fatalf("failed to get upserted case2: %v", err)
@@ -290,22 +292,25 @@ func TestSObject_Upsert(t *testing.T) {
 
 	// Negative: object without type.
 	obj := client.SObject()
-	if obj.Upsert() != nil {
-		t.Fail()
+	_, err = obj.Upsert()
+	if err == nil {
+		t.Error("expected error for object without type")
 	}
 
 	// Negative: object without client.
 	obj = &SObject{}
-	if obj.Upsert() != nil {
-		t.Fail()
+	_, err = obj.Upsert()
+	if err == nil {
+		t.Error("expected error for object without client")
 	}
 
 	// Negative: Invalid type
 	obj = client.SObject("__SOME_INVALID_TYPE__").
 		Set("ExternalIDField", "customExtIdField__c").
 		Set("customExtIdField__c", uuid.NewString())
-	if obj.Upsert() != nil {
-		t.Fail()
+	_, err = obj.Upsert()
+	if err == nil {
+		t.Error("expected error for invalid type")
 	}
 
 	// Negative: Invalid field
@@ -313,15 +318,17 @@ func TestSObject_Upsert(t *testing.T) {
 		Set("ExternalIDField", "customExtIdField__c").
 		Set("customExtIdField__c", uuid.NewString()).
 		Set("__SOME_INVALID_FIELD__", "")
-	if obj.Upsert() != nil {
-		t.Fail()
+	_, err = obj.Upsert()
+	if err == nil {
+		t.Error("expected error for invalid field")
 	}
 
 	// Negative: Missing ext ID
 	obj = client.SObject("Case").
 		Set("ExternalIDField", "customExtIdField__c")
-	if obj.Upsert() != nil {
-		t.Fail()
+	_, err = obj.Upsert()
+	if err == nil {
+		t.Error("expected error for missing external ID")
 	}
 }
 
@@ -814,5 +821,206 @@ func TestUpdate_DelegatesToUpdateWithContext(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected non-nil result")
+	}
+}
+
+// --- UpsertWithContext unit tests ---
+
+func TestUpsertWithContext_MissingType(t *testing.T) {
+	obj := &SObject{}
+	result, err := obj.UpsertWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for missing type")
+	}
+	if !errors.Is(err, ErrObjectTypeMissing) {
+		t.Errorf("expected ErrObjectTypeMissing, got %v", err)
+	}
+}
+
+func TestUpsertWithContext_MissingClient(t *testing.T) {
+	obj := &SObject{}
+	obj.setType("Case")
+	result, err := obj.UpsertWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for missing client")
+	}
+	if !errors.Is(err, ErrObjectClientMissing) {
+		t.Errorf("expected ErrObjectClientMissing, got %v", err)
+	}
+}
+
+func TestUpsertWithContext_MissingExternalIDField(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("HTTP request should not be made when external ID field is missing")
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	// Set external ID value but no field name
+	obj.Set("customExtIdField__c", "some-value")
+	result, err := obj.UpsertWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for missing external ID field")
+	}
+	if !errors.Is(err, ErrExternalIDMissing) {
+		t.Errorf("expected ErrExternalIDMissing, got %v", err)
+	}
+}
+
+func TestUpsertWithContext_MissingExternalID(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("HTTP request should not be made when external ID is missing")
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	// Set field name but no value for that field
+	obj.Set("ExternalIDField", "customExtIdField__c")
+	result, err := obj.UpsertWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for missing external ID")
+	}
+	if !errors.Is(err, ErrExternalIDMissing) {
+		t.Errorf("expected ErrExternalIDMissing, got %v", err)
+	}
+}
+
+func TestUpsertWithContext_MarshalFailure(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("HTTP request should not be made when marshal fails")
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	obj.Set("ExternalIDField", "customExtIdField__c")
+	obj.Set("customExtIdField__c", "ext-123")
+	obj.Set("BadField", make(chan int))
+	result, err := obj.UpsertWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for marshal failure")
+	}
+	if !errors.Is(err, ErrMarshalRequest) {
+		t.Errorf("expected ErrMarshalRequest, got %v", err)
+	}
+}
+
+func TestUpsertWithContext_HTTPError(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, `[{"message":"invalid","errorCode":"INVALID_FIELD"}]`)
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	obj.Set("ExternalIDField", "customExtIdField__c")
+	obj.Set("customExtIdField__c", "ext-123")
+	obj.Set("Subject", "Test")
+	result, err := obj.UpsertWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for HTTP error")
+	}
+	if !errors.Is(err, ErrHTTPRequest) {
+		t.Errorf("expected ErrHTTPRequest, got %v", err)
+	}
+}
+
+func TestUpsertWithContext_ParseFailure(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		// 201 means new record created, but response is invalid JSON
+		w.WriteHeader(http.StatusCreated)
+		fmt.Fprint(w, `not valid json`)
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	obj.Set("ExternalIDField", "customExtIdField__c")
+	obj.Set("customExtIdField__c", "ext-123")
+	obj.Set("Subject", "Test")
+	result, err := obj.UpsertWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for parse failure")
+	}
+	if !errors.Is(err, ErrParseResponse) {
+		t.Errorf("expected ErrParseResponse, got %v", err)
+	}
+}
+
+func TestUpsertWithContext_SuccessNewRecord(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+		// 201 with ID means a new record was created
+		w.WriteHeader(http.StatusCreated)
+		fmt.Fprint(w, `{"id":"001NEW","success":true}`)
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	obj.Set("ExternalIDField", "customExtIdField__c")
+	obj.Set("customExtIdField__c", "ext-123")
+	obj.Set("Subject", "Test Case")
+	result, err := obj.UpsertWithContext(context.Background())
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if result != obj {
+		t.Error("expected result to be same pointer as obj")
+	}
+	if result.ID() != "001NEW" {
+		t.Errorf("expected ID '001NEW', got '%s'", result.ID())
+	}
+}
+
+func TestUpsertWithContext_SuccessUpdatedRecord(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+		// 204 with empty body means existing record was updated
+		w.WriteHeader(http.StatusNoContent)
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	obj.Set("ExternalIDField", "customExtIdField__c")
+	obj.Set("customExtIdField__c", "ext-123")
+	obj.setID("001EXISTING")
+	obj.Set("Subject", "Updated Case")
+	result, err := obj.UpsertWithContext(context.Background())
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if result != obj {
+		t.Error("expected result to be same pointer as obj (in-place update)")
+	}
+}
+
+func TestUpsert_DelegatesToUpsertWithContext(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		fmt.Fprint(w, `{"id":"001NEW","success":true}`)
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case")
+	obj.Set("ExternalIDField", "customExtIdField__c")
+	obj.Set("customExtIdField__c", "ext-123")
+	obj.Set("Subject", "Test")
+	result, err := obj.Upsert()
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if result.ID() != "001NEW" {
+		t.Errorf("expected ID '001NEW', got '%s'", result.ID())
 	}
 }
