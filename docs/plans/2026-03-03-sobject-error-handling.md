@@ -52,11 +52,11 @@
 - [x] Run tests — must pass before task 2
 
 ### Task 2: Change Get to return (*SObject, error)
-- [ ] Write unit tests for `GetWithContext` expecting `(*SObject, error)` return: test missing type, missing client, missing ID, successful get (using mock/test SObject)
-- [ ] Update `GetWithContext` signature to return `(*SObject, error)` — return wrapped sentinel errors with context
-- [ ] Update `Get` wrapper to return `(*SObject, error)` and delegate to `GetWithContext`
-- [ ] Replace `log.Println()` calls in Get with `client.logger.Println()` where client is available, remove where returning error
-- [ ] Run tests — must pass before task 3
+- [x] Write unit tests for `GetWithContext` expecting `(*SObject, error)` return: test missing type, missing client, missing ID, successful get (using mock/test SObject)
+- [x] Update `GetWithContext` signature to return `(*SObject, error)` — return wrapped sentinel errors with context
+- [x] Update `Get` wrapper to return `(*SObject, error)` and delegate to `GetWithContext`
+- [x] Replace `log.Println()` calls in Get with `client.logger.Println()` where client is available, remove where returning error
+- [x] Run tests — must pass before task 3
 
 ### Task 3: Change Create to return (*SObject, error)
 - [ ] Write unit tests for `CreateWithContext` expecting `(*SObject, error)` return: test missing type, missing client, marshal failure, HTTP failure, parse failure

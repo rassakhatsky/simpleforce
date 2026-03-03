@@ -114,7 +114,10 @@ func TestClient_Query2(t *testing.T) {
 	}
 	if len(result.Records) > 0 {
 		comment1 := &result.Records[0]
-		case1 := comment1.SObjectField("Case", "Parent").Get()
+		case1, err := comment1.SObjectField("Case", "Parent").Get()
+		if err != nil {
+			t.Fatalf("failed to get case: %v", err)
+		}
 		if comment1.StringField("ParentId") != case1.ID() {
 			t.Fail()
 		}

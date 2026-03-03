@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -79,17 +80,18 @@ func (obj *SObject) DescribeWithContext(ctx context.Context) *SObjectMeta {
 
 // Get retrieves all the data fields of an SObject. If id is provided, the SObject with the provided external ID will
 // be retrieved; otherwise, the existing ID of the SObject will be checked. If the SObject doesn't contain an ID field
-// and id is not provided as the parameter, nil is returned.
-// If query is successful, the SObject is updated in-place and exact same address is returned; otherwise, nil is
-// returned if failed.
-func (obj *SObject) Get(id ...string) *SObject {
+// and id is not provided as the parameter, an error is returned.
+// If query is successful, the SObject is updated in-place and the same pointer is returned; otherwise, nil and an error are returned.
+func (obj *SObject) Get(id ...string) (*SObject, error) {
 	return obj.GetWithContext(context.Background(), id...)
 }
 
-func (obj *SObject) GetWithContext(ctx context.Context, id ...string) *SObject {
-	if obj.Type() == "" || obj.client() == nil {
-		// Sanity check.
-		return nil
+func (obj *SObject) GetWithContext(ctx context.Context, id ...string) (*SObject, error) {
+	if obj.Type() == "" {
+		return nil, fmt.Errorf("%w: SObject type is empty", ErrObjectTypeMissing)
+	}
+	if obj.client() == nil {
+		return nil, fmt.Errorf("%w: SObject has no associated client", ErrObjectClientMissing)
 	}
 
 	oid := obj.ID()
@@ -97,24 +99,21 @@ func (obj *SObject) GetWithContext(ctx context.Context, id ...string) *SObject {
 		oid = id[0]
 	}
 	if oid == "" {
-		log.Println(logPrefix, "object id not found.")
-		return nil
+		return nil, fmt.Errorf("%w: no ID provided and SObject has no ID set", ErrObjectIDMissing)
 	}
 
 	url := obj.client().makeURL("sobjects/" + obj.Type() + "/" + oid)
 	data, err := obj.client().httpRequest(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		log.Println(logPrefix, "http request failed,", err)
-		return nil
+		return nil, fmt.Errorf("%w: %v", ErrHTTPRequest, err)
 	}
 
 	err = json.Unmarshal(data, obj)
 	if err != nil {
-		log.Println(logPrefix, "json decode failed,", err)
-		return nil
+		return nil, fmt.Errorf("%w: %v", ErrParseResponse, err)
 	}
 
-	return obj
+	return obj, nil
 }
 
 // Create posts the JSON representation of the SObject to salesforce to create the entry.
