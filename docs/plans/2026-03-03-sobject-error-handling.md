@@ -98,13 +98,13 @@
 - [x] Run tests — must pass before task 8
 
 ### Task 8: Verify acceptance criteria
-- [ ] Verify all CRUD methods return `(*SObject, error)` or `error` (Delete)
-- [ ] Verify Delete uses `oid` not `obj.ID()` when id parameter is provided
-- [ ] Verify no `log.Println()` calls remain in sobject.go (all use `client.logger`)
-- [ ] Verify orphaned logging (line 188) and debug logging (lines 200-201) are removed
-- [ ] Run full test suite (`go test ./...`)
-- [ ] Run linter (`go vet ./...`)
-- [ ] Verify all unit tests pass without SF credentials
+- [x] Verify all CRUD methods return `(*SObject, error)` or `error` (Delete)
+- [x] Verify Delete uses `oid` not `obj.ID()` when id parameter is provided
+- [x] Verify no `log.Println()` calls remain in sobject.go (all use `client.logger`)
+- [x] Verify orphaned logging (line 188) and debug logging (lines 200-201) are removed
+- [x] Run full test suite (`go test ./...`)
+- [x] Run linter (`go vet ./...`)
+- [x] Verify all unit tests pass without SF credentials
 
 ### Task 9: [Final] Update documentation
 - [ ] Update CLAUDE.md — update "Fluent API" section to reflect that CRUD methods now return `(*SObject, error)` instead of `*SObject`
