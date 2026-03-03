@@ -89,13 +89,13 @@
 - [x] Run tests — must pass before task 7
 
 ### Task 7: Update integration tests for new signatures
-- [ ] Update `TestSObject_Get` — handle `(*SObject, error)` returns, verify errors on negative cases
-- [ ] Update `TestSObject_Create` — handle `(*SObject, error)` returns, verify errors on negative cases, remove chaining
-- [ ] Update `TestSObject_Update` — break chain into explicit steps with error checks
-- [ ] Update `TestSObject_Upsert` — handle `(*SObject, error)` returns, verify errors on negative cases
-- [ ] Update `TestSObject_Delete` — update to use new Create/Get signatures
-- [ ] Update `TestSObject_GetUpdate` — break chain into explicit steps with error checks
-- [ ] Run tests — must pass before task 8
+- [x] Update `TestSObject_Get` — handle `(*SObject, error)` returns, verify errors on negative cases
+- [x] Update `TestSObject_Create` — handle `(*SObject, error)` returns, verify errors on negative cases, remove chaining
+- [x] Update `TestSObject_Update` — break chain into explicit steps with error checks
+- [x] Update `TestSObject_Upsert` — handle `(*SObject, error)` returns, verify errors on negative cases
+- [x] Update `TestSObject_Delete` — update to use new Create/Get signatures
+- [x] Update `TestSObject_GetUpdate` — break chain into explicit steps with error checks
+- [x] Run tests — must pass before task 8
 
 ### Task 8: Verify acceptance criteria
 - [ ] Verify all CRUD methods return `(*SObject, error)` or `error` (Delete)
