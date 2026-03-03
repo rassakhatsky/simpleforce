@@ -61,7 +61,7 @@ func (err SalesforceError) Error() string {
 func ParseSalesforceError(statusCode int, responseBody []byte) (err error) {
 	jsonErr := jsonError{}
 	err = json.Unmarshal(responseBody, &jsonErr)
-	if err == nil {
+	if err == nil && len(jsonErr) > 0 {
 		return SalesforceError{
 			Message: fmt.Sprintf(
 				logPrefix+" Error. http code: %v Error Message:  %v Error Code: %v",

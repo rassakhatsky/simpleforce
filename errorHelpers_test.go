@@ -57,6 +57,18 @@ func TestUnsuccessfulParse(t *testing.T) {
 	}
 }
 
+func TestParseSalesforceError_EmptyJSONArray(t *testing.T) {
+	// An empty JSON array should not panic
+	err := ParseSalesforceError(400, []byte("[]"))
+	sfErr, ok := err.(SalesforceError)
+	if !ok {
+		t.Fatal("expected SalesforceError type")
+	}
+	if sfErr.HttpCode != 400 {
+		t.Errorf("expected HttpCode 400, got %d", sfErr.HttpCode)
+	}
+}
+
 func TestSentinelErrors_AreDistinct(t *testing.T) {
 	sentinels := []struct {
 		name string

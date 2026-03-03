@@ -264,10 +264,9 @@ func (obj *SObject) DeleteWithContext(ctx context.Context, id ...string) error {
 	}
 
 	url := obj.client().makeURL("sobjects/" + obj.Type() + "/" + oid)
-	obj.client().logger.Println(logPrefix, url)
 	_, err := obj.client().httpRequest(ctx, http.MethodDelete, url, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %v", ErrHTTPRequest, err)
 	}
 
 	return nil

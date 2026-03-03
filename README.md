@@ -121,10 +121,13 @@ func WorkWithRecords() {
 	client := simpleforce.NewClient(...)
 	client.LoginPassword(...)
 
-	// Get an SObject with given type and external ID
-	obj := client.SObject("Case").Get("__ID__")
-	if obj == nil {
-		// Object doesn't exist, handle the error
+	// Get an SObject with given type and external ID.
+	// CRUD methods return (*SObject, error).
+	obj, err := client.SObject("Case").Get("__ID__")
+	if err != nil {
+		// Handle the error. Use errors.Is() to check error categories:
+		//   errors.Is(err, simpleforce.ErrObjectIDMissing)
+		//   errors.Is(err, simpleforce.ErrHTTPRequest)
 		return
 	}
 
@@ -149,43 +152,60 @@ func WorkWithRecords() {
 
 	// If an SObject instance already has an ID (e.g. linked object), `Get` can retrieve the object directly without
 	// parameter.
-	userObj.Get()
+	userObj, err = userObj.Get()
+	if err != nil {
+		return
+	}
 	fmt.Println(userObj.StringField("Name"))    // SUCCESS: returns the name of the user.
 
 	// For Update(), start with a blank SObject.
 	// Set "Id" with an existing ID and any updated fields.
 	//
-	// Update() will return the updated object, or nil and print an error.
-	updateObj := client.SObject("Contact").								// Create an empty object of type "Contact".
-		Set("Id", "__ID__").											// Set the Id to an existing Contact ID.
-		Set("FirstName", "New Name").									// Set any updated fields.
-		Update()														// Update the record on Salesforce server.
+	// Update() returns the updated object and nil error, or nil and an error.
+	updateObj, err := client.SObject("Contact").
+		Set("Id", "__ID__").
+		Set("FirstName", "New Name").
+		Update()
+	if err != nil {
+		// handle error
+		return
+	}
 	fmt.Println(updateObj)
 
 	// For Upsert(), start with a blank SObject.
 	// Upsert will create the object if it does not already exist and will update the object if it already exists.
 	// Set "ExternalIDField" to the name of your external ID field
-	// and populate that field with an your external ID and any updated fields.
+	// and populate that field with your external ID and any updated fields.
 	//
-	// Upsert() will return the updated object, or nil and print an error.
-	upsertObj := client.SObject("Contact").						// Create an empty object of type "Contact".
-		Set("ExternalIDField", "customExtIdField__c").	// Set the ExternalIDField to the name of your external ID field.
-		Set("customExtIdField__c", "__ExtID__").				// Set the specified ID field to your external ID.
-		Set("FirstName", "New Name").										// Set any updated fields.
-		Upsert()																				// Update the record on Salesforce server.
+	// Upsert() returns the upserted object and nil error, or nil and an error.
+	upsertObj, err := client.SObject("Contact").
+		Set("ExternalIDField", "customExtIdField__c").
+		Set("customExtIdField__c", "__ExtID__").
+		Set("FirstName", "New Name").
+		Upsert()
+	if err != nil {
+		// handle error
+		return
+	}
 	fmt.Println(upsertObj)
 
-	// Many SObject methods return the instance of the SObject, allowing chained access and operations to the
-	// object. In the following example, all methods, except "Delete", returns *SObject so that the next method
-	// can be invoked on the returned value directly.
-	//
-	// Delete() methods returns `error` instead, as Delete is supposed to delete the record from the server.
-	err := client.SObject("Case").                               // Create an empty object of type "Case"
-    		Set("Subject", "Case created by simpleforce").              // Set the "Subject" field.
-	        Set("Comments", "Case commented by simpleforce").           // Set the "Comments" field.
-    		Create().                                                   // Create the record on Salesforce server.
-    		Get().                                                      // Refresh the fields from Salesforce server.
-    		Delete()                                                    // Delete the record from Salesforce server.
+	// Set() returns *SObject for chaining field assignments.
+	// CRUD methods (Get, Create, Update, Upsert) return (*SObject, error) and cannot be chained.
+	// Delete() returns error.
+	created, err := client.SObject("Case").
+		Set("Subject", "Case created by simpleforce").
+		Set("Comments", "Case commented by simpleforce").
+		Create()
+	if err != nil {
+		// handle error
+		return
+	}
+	refreshed, err := created.Get()
+	if err != nil {
+		// handle error
+		return
+	}
+	err = refreshed.Delete()
 	fmt.Println(err)
 }
 ```

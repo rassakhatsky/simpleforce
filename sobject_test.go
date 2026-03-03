@@ -659,6 +659,23 @@ func TestCreateWithContext_ParseFailure(t *testing.T) {
 	}
 }
 
+func TestCreateWithContext_UnsuccessfulResponse(t *testing.T) {
+	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		fmt.Fprint(w, `{"id":"","success":false,"errors":["some problem"]}`)
+	})
+	defer server.Close()
+
+	obj := client.SObject("Case").Set("Subject", "Test")
+	result, err := obj.CreateWithContext(context.Background())
+	if result != nil {
+		t.Error("expected nil result for unsuccessful response")
+	}
+	if !errors.Is(err, ErrParseResponse) {
+		t.Errorf("expected ErrParseResponse, got %v", err)
+	}
+}
+
 func TestCreateWithContext_Success(t *testing.T) {
 	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -1124,6 +1141,9 @@ func TestDeleteWithContext_HTTPError(t *testing.T) {
 	err := obj.DeleteWithContext(context.Background(), "bad-id")
 	if err == nil {
 		t.Error("expected error for HTTP 404 response")
+	}
+	if !errors.Is(err, ErrHTTPRequest) {
+		t.Errorf("expected ErrHTTPRequest, got %v", err)
 	}
 }
 
